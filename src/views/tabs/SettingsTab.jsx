@@ -3,44 +3,17 @@ import { supabase } from '../../config/supabase';
 import { User, Mail, Globe, Trash2, Loader2, RefreshCw, Server, BedDouble, Copy, Camera, CheckCircle2 } from 'lucide-react';
 
 export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations }) => {
-  // Inicializamos el estado cargando datos locales como respaldo para que NUNCA se borre
   const [formData, setFormData] = useState({
-    name: adminProfile?.name || localStorage.getItem('hotel_admin_name') || '',
-    email: adminProfile?.email || localStorage.getItem('hotel_admin_email') || '',
-    avatar: adminProfile?.avatar || localStorage.getItem('hotel_admin_avatar') || null,
-    apiIntegrations: adminProfile?.apiIntegrations || { phpEndpoint: localStorage.getItem('hotel_php_endpoint') || '' }
+    ...adminProfile,
+    apiIntegrations: adminProfile.apiIntegrations || { phpEndpoint: '' }
   });
 
-  const [roomIcalLinks, setRoomIcalLinks] = useState(() => {
-    const local = localStorage.getItem('hotel_ical_links');
-    return local ? JSON.parse(local) : {};
-  });
-  
+  const [roomIcalLinks, setRoomIcalLinks] = useState({});
   const [saved, setSaved] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testSuccess, setTestSuccess] = useState(false);
   const [testMessage, setTestMessage] = useState('');
   const fileInputRef = useRef(null);
-
-  // 1. CARGAR LOS LINKS DESDE EL JSON DE TU PHP AL INICIAR
-  useEffect(() => {
-    const fetchConfigFromPHP = async () => {
-      const endpoint = formData.apiIntegrations?.phpEndpoint;
-      if (endpoint && endpoint.includes('http')) {
-        try {
-          const response = await fetch(`${endpoint}?action=getConfig`);
-          const data = await response.json();
-          if (data && data.roomIcalLinks) {
-            setRoomIcalLinks(data.roomIcalLinks);
-            localStorage.setItem('hotel_ical_links', JSON.stringify(data.roomIcalLinks)); // Actualizar localmente también
-          }
-        } catch (e) {
-          console.log("Aún no hay un config.json en PHP o la URL es incorrecta.");
-        }
-      }
-    };
-    fetchConfigFromPHP();
-  }, [formData.apiIntegrations?.phpEndpoint]);
 
   useEffect(() => {
     const updateServerJson = async () => {
@@ -58,63 +31,31 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
       }
     };
     updateServerJson();
-  }, [reservations, formData.apiIntegrations?.phpEndpoint]);
+  }, [reservations, formData.apiIntegrations.phpEndpoint]);
 
   useEffect(() => {
-    if (adminProfile && adminProfile.name) {
-       setFormData(prev => ({
-         ...prev,
-         name: adminProfile.name || prev.name,
-         email: adminProfile.email || prev.email,
-         avatar: adminProfile.avatar || prev.avatar,
-         apiIntegrations: adminProfile.apiIntegrations || prev.apiIntegrations
-       }));
+    if (adminProfile) {
+       setFormData({
+         ...adminProfile,
+         apiIntegrations: adminProfile.apiIntegrations || { phpEndpoint: '' }
+       });
+       if (adminProfile.roomIcalLinks) {
+         setRoomIcalLinks(adminProfile.roomIcalLinks);
+       }
     }
   }, [adminProfile]);
 
   const handleSave = async (e) => {
     e.preventDefault();
-    
-    // --- 1. GUARDADO LOCAL GARANTIZADO (Instantáneo) ---
-    // Esto asegura que, pase lo que pase con la BD, los datos no se borren de tu pantalla.
-    localStorage.setItem('hotel_ical_links', JSON.stringify(roomIcalLinks));
-    localStorage.setItem('hotel_php_endpoint', formData.apiIntegrations?.phpEndpoint || '');
-    localStorage.setItem('hotel_admin_name', formData.name || '');
-    localStorage.setItem('hotel_admin_email', formData.email || '');
-    if (formData.avatar) localStorage.setItem('hotel_admin_avatar', formData.avatar);
-
-    // --- 2. GUARDAR LOS LINKS EN EL JSON DE TU PHP (SiteGround) ---
-    const endpoint = formData.apiIntegrations?.phpEndpoint;
-    if (endpoint && endpoint.includes('http')) {
-      try {
-        await fetch(`${endpoint}?action=saveConfig`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ roomIcalLinks })
-        });
-      } catch (error) {
-        console.error("Error al guardar links en PHP:", error);
-      }
-    }
-
-    // --- 3. GUARDAR PERFIL EN SUPABASE ---
     const dataToSave = {
-      name: formData.name,
-      email: formData.email,
-      avatar: formData.avatar,
-      apiIntegrations: formData.apiIntegrations 
+      ...formData,
+      roomIcalLinks: roomIcalLinks
     };
     
-    setAdminProfile(dataToSave); // Actualizar UI local
+    // UI Update local
+    setAdminProfile(dataToSave);
     
-    try {
-      const { error } = await supabase.from('admin_profile').upsert([{ id: 'main', ...dataToSave }]);
-      if (error) console.error("Aviso Supabase:", error.message); // No bloqueamos si falla Supabase
-    } catch(err) {
-      console.error(err);
-    }
-    
-    // MOSTRAR EL MENSAJE DE "GUARDADO CORRECTAMENTE" SIEMPRE
+    await supabase.from('admin_profile').upsert([{ id: 'main', ...dataToSave }]);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
@@ -166,7 +107,7 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
     setTestSuccess(false);
     setTestMessage('');
 
-    const endpoint = formData.apiIntegrations?.phpEndpoint;
+    const endpoint = formData.apiIntegrations.phpEndpoint;
 
     if (!endpoint || !endpoint.includes('http')) {
       setIsTesting(false);
@@ -306,7 +247,7 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
               {formData.avatar ? (
                 <img src={formData.avatar} alt="Perfil" className="w-full h-full object-cover" />
               ) : (
-                formData.name?.substring(0, 2).toUpperCase() || 'AD'
+                formData.name.substring(0, 2).toUpperCase()
               )}
             </div>
             <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
@@ -331,11 +272,11 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center"><User size={16} className="mr-2 text-slate-400"/> Nombre Completo</label>
-              <input required type="text" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 bg-slate-50 focus:bg-white transition text-base sm:text-sm" />
+              <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 bg-slate-50 focus:bg-white transition text-base sm:text-sm" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center"><Mail size={16} className="mr-2 text-slate-400"/> Correo Electrónico</label>
-              <input required type="email" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 bg-slate-50 focus:bg-white transition text-base sm:text-sm" />
+              <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 bg-slate-50 focus:bg-white transition text-base sm:text-sm" />
             </div>
           </div>
         </form>
@@ -360,7 +301,7 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
             <button 
               type="button" 
               onClick={handleTestConnection}
-              disabled={isTesting || !formData.apiIntegrations?.phpEndpoint}
+              disabled={isTesting || !formData.apiIntegrations.phpEndpoint}
               className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition shadow-sm"
             >
               {isTesting ? <Loader2 size={16} className="mr-2 animate-spin" /> : <RefreshCw size={16} className="mr-2" />}
@@ -382,13 +323,13 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
              <p className="text-xs text-slate-500 mb-3">Ruta al archivo <b>sync.php</b> que procesa los calendarios.</p>
              <input 
                 type="url" 
-                value={formData.apiIntegrations?.phpEndpoint || ''} 
+                value={formData.apiIntegrations.phpEndpoint} 
                 onChange={e => setFormData({
                   ...formData, 
                   apiIntegrations: { ...formData.apiIntegrations, phpEndpoint: e.target.value }
                 })} 
                 className="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono" 
-                placeholder="https://tuhotel.com/sync.php" 
+                placeholder="[https://tuhotel.com/sync.php](https://tuhotel.com/sync.php)" 
               />
           </div>
 
@@ -404,16 +345,18 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
                     <p className="font-bold text-slate-800 text-lg flex items-center"><BedDouble size={18} className="mr-2 text-blue-500"/> Hab. {room.number}</p>
                     <p className="text-xs text-slate-500">{room.type}</p>
                     
-                    <div className="mt-3">
-                      <p className="text-[10px] font-bold text-emerald-600 uppercase mb-1">Exportar a Booking/Airbnb</p>
-                      <button 
-                        type="button"
-                        onClick={() => copyToClipboard(`${formData.apiIntegrations?.phpEndpoint || 'https://tuhotel.com/sync.php'}?exportRoom=${room.number}`)}
-                        className="flex items-center text-xs bg-emerald-50 text-emerald-700 px-2 py-1.5 rounded hover:bg-emerald-100 transition border border-emerald-200"
-                      >
-                        <Copy size={12} className="mr-1" /> Copiar Enlace iCal
-                      </button>
-                    </div>
+                    {/* NUEVO: Botón de Exportación */}
+                    {formData.apiIntegrations.phpEndpoint && formData.apiIntegrations.phpEndpoint.includes('http') && (
+                      <div className="mt-3">
+                        <p className="text-[10px] font-bold text-emerald-600 uppercase mb-1">Exportar a Booking/Airbnb</p>
+                        <button 
+                          onClick={() => copyToClipboard(`${formData.apiIntegrations.phpEndpoint}?exportRoom=${room.number}`)}
+                          className="flex items-center text-xs bg-emerald-50 text-emerald-700 px-2 py-1.5 rounded hover:bg-emerald-100 transition border border-emerald-200"
+                        >
+                          <Copy size={12} className="mr-1" /> Copiar Enlace iCal
+                        </button>
+                      </div>
+                    )}
 
                   </div>
                   <div className="w-full md:w-3/4 grid grid-cols-1 sm:grid-cols-2 gap-3">
