@@ -5,7 +5,7 @@ import { User, Mail, Globe, Trash2, Loader2, RefreshCw, Server, BedDouble, Copy,
 export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations }) => {
   const [formData, setFormData] = useState({
     ...adminProfile,
-    apiIntegrations: adminProfile.apiIntegrations || { phpEndpoint: '' }
+    apiIntegrations: adminProfile?.apiIntegrations || { phpEndpoint: '' }
   });
 
   const [roomIcalLinks, setRoomIcalLinks] = useState({});
@@ -31,7 +31,7 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
       }
     };
     updateServerJson();
-  }, [reservations, formData.apiIntegrations.phpEndpoint]);
+  }, [reservations, formData.apiIntegrations?.phpEndpoint]);
 
   useEffect(() => {
     if (adminProfile) {
@@ -39,8 +39,16 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
          ...adminProfile,
          apiIntegrations: adminProfile.apiIntegrations || { phpEndpoint: '' }
        });
-       if (adminProfile.roomIcalLinks) {
-         setRoomIcalLinks(adminProfile.roomIcalLinks);
+       
+       // Soportar ambas formas en las que Supabase pudo haber guardado la columna
+       const linksToLoad = adminProfile.roomIcalLinks || adminProfile.roomicallinks;
+       if (linksToLoad) {
+         // Procesamiento seguro por si Supabase lo guardó como texto en lugar de JSONB
+         let parsedLinks = linksToLoad;
+         if (typeof parsedLinks === 'string') {
+            try { parsedLinks = JSON.parse(parsedLinks); } catch(e) {}
+         }
+         setRoomIcalLinks(parsedLinks || {});
        }
     }
   }, [adminProfile]);
@@ -55,9 +63,16 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
     // UI Update local
     setAdminProfile(dataToSave);
     
-    await supabase.from('admin_profile').upsert([{ id: 'main', ...dataToSave }]);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    // Intento de guardado con captura de errores
+    const { error } = await supabase.from('admin_profile').upsert([{ id: 'main', ...dataToSave }]);
+    
+    if (error) {
+      console.error("Error crítico de Supabase:", error);
+      alert("❌ Error al guardar en la base de datos:\n" + error.message + "\n\n(Asegúrate de que la columna 'roomIcalLinks' o 'roomicallinks' esté creada como tipo JSONB en la tabla 'admin_profile').");
+    } else {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    }
   };
 
   const handleIcalChange = (roomNumber, platform, value) => {
@@ -107,7 +122,7 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
     setTestSuccess(false);
     setTestMessage('');
 
-    const endpoint = formData.apiIntegrations.phpEndpoint;
+    const endpoint = formData.apiIntegrations?.phpEndpoint;
 
     if (!endpoint || !endpoint.includes('http')) {
       setIsTesting(false);
@@ -247,7 +262,7 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
               {formData.avatar ? (
                 <img src={formData.avatar} alt="Perfil" className="w-full h-full object-cover" />
               ) : (
-                formData.name.substring(0, 2).toUpperCase()
+                formData.name?.substring(0, 2).toUpperCase() || 'AD'
               )}
             </div>
             <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
@@ -272,11 +287,11 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center"><User size={16} className="mr-2 text-slate-400"/> Nombre Completo</label>
-              <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 bg-slate-50 focus:bg-white transition text-base sm:text-sm" />
+              <input required type="text" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 bg-slate-50 focus:bg-white transition text-base sm:text-sm" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center"><Mail size={16} className="mr-2 text-slate-400"/> Correo Electrónico</label>
-              <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 bg-slate-50 focus:bg-white transition text-base sm:text-sm" />
+              <input required type="email" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 bg-slate-50 focus:bg-white transition text-base sm:text-sm" />
             </div>
           </div>
         </form>
@@ -301,7 +316,7 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
             <button 
               type="button" 
               onClick={handleTestConnection}
-              disabled={isTesting || !formData.apiIntegrations.phpEndpoint}
+              disabled={isTesting || !formData.apiIntegrations?.phpEndpoint}
               className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition shadow-sm"
             >
               {isTesting ? <Loader2 size={16} className="mr-2 animate-spin" /> : <RefreshCw size={16} className="mr-2" />}
@@ -323,13 +338,13 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
              <p className="text-xs text-slate-500 mb-3">Ruta al archivo <b>sync.php</b> que procesa los calendarios.</p>
              <input 
                 type="url" 
-                value={formData.apiIntegrations.phpEndpoint} 
+                value={formData.apiIntegrations?.phpEndpoint || ''} 
                 onChange={e => setFormData({
                   ...formData, 
                   apiIntegrations: { ...formData.apiIntegrations, phpEndpoint: e.target.value }
                 })} 
                 className="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono" 
-                placeholder="[https://tuhotel.com/sync.php](https://tuhotel.com/sync.php)" 
+                placeholder="https://tuhotel.com/sync.php" 
               />
           </div>
 
@@ -345,18 +360,17 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
                     <p className="font-bold text-slate-800 text-lg flex items-center"><BedDouble size={18} className="mr-2 text-blue-500"/> Hab. {room.number}</p>
                     <p className="text-xs text-slate-500">{room.type}</p>
                     
-                    {/* NUEVO: Botón de Exportación */}
-                    {formData.apiIntegrations.phpEndpoint && formData.apiIntegrations.phpEndpoint.includes('http') && (
-                      <div className="mt-3">
-                        <p className="text-[10px] font-bold text-emerald-600 uppercase mb-1">Exportar a Booking/Airbnb</p>
-                        <button 
-                          onClick={() => copyToClipboard(`${formData.apiIntegrations.phpEndpoint}?exportRoom=${room.number}`)}
-                          className="flex items-center text-xs bg-emerald-50 text-emerald-700 px-2 py-1.5 rounded hover:bg-emerald-100 transition border border-emerald-200"
-                        >
-                          <Copy size={12} className="mr-1" /> Copiar Enlace iCal
-                        </button>
-                      </div>
-                    )}
+                    {/* BOTÓN DE EXPORTACIÓN (Corregido para que SIEMPRE sea visible) */}
+                    <div className="mt-3">
+                      <p className="text-[10px] font-bold text-emerald-600 uppercase mb-1">Exportar a Booking/Airbnb</p>
+                      <button 
+                        type="button"
+                        onClick={() => copyToClipboard(`${formData.apiIntegrations?.phpEndpoint || 'https://tuhotel.com/sync.php'}?exportRoom=${room.number}`)}
+                        className="flex items-center text-xs bg-emerald-50 text-emerald-700 px-2 py-1.5 rounded hover:bg-emerald-100 transition border border-emerald-200"
+                      >
+                        <Copy size={12} className="mr-1" /> Copiar Enlace iCal
+                      </button>
+                    </div>
 
                   </div>
                   <div className="w-full md:w-3/4 grid grid-cols-1 sm:grid-cols-2 gap-3">
