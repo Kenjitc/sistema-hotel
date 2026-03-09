@@ -48,17 +48,28 @@ export const ReservationsTab = ({ reservations, setReservations, rooms, setRooms
     const roomPrice = basePrice * diffDays;
     
     const resId = Math.floor(1000 + Math.random() * 9000).toString();
+    const newReservationData = { id: resId, ...newRes, price: roomPrice, status: 'Confirmada' };
+
+    // Actualización UI instantánea
+    setReservations(prev => [...prev, newReservationData]);
+    if (roomData) {
+      setRooms(prev => prev.map(r => r.id === roomData.id ? { ...r, status: 'Reservado' } : r));
+    }
 
     if (!guests.find(g => g.dni === newRes.dni)) {
-      await supabase.from('guests').upsert([{ dni: newRes.dni, name: newRes.client, email: newRes.email }]);
+      const newGuest = { dni: newRes.dni, name: newRes.client, email: newRes.email };
+      setGuests(prev => [...prev, newGuest]);
+      await supabase.from('guests').upsert([newGuest]);
     }
 
     if (!users.find(u => u.email === newRes.email || u.name === newRes.client)) {
       const newUserId = Date.now().toString();
-      await supabase.from('users').upsert([{ id: newUserId, name: newRes.client, email: newRes.email, role: 'Huésped', status: 'Activo' }]);
+      const newUser = { id: newUserId, name: newRes.client, email: newRes.email, role: 'Huésped', status: 'Activo' };
+      setUsers(prev => [...prev, newUser]);
+      await supabase.from('users').upsert([newUser]);
     }
 
-    await supabase.from('reservations').upsert([{ id: resId, ...newRes, price: roomPrice, status: 'Confirmada' }]);
+    await supabase.from('reservations').upsert([newReservationData]);
     
     if (roomData) {
       await supabase.from('rooms').update({ status: 'Reservado' }).eq('id', roomData.id);
@@ -190,6 +201,7 @@ export const ReservationsTab = ({ reservations, setReservations, rooms, setRooms
                   <td className="px-4 py-4 text-right">
                     <button onClick={async () => {
                       if(window.confirm('¿Estás seguro de que deseas eliminar esta reserva?')) {
+                        setReservations(prev => prev.filter(r => r.id !== res.id));
                         await supabase.from('reservations').delete().eq('id', res.id);
                       }
                     }} className="p-2 text-slate-400 hover:text-rose-600">

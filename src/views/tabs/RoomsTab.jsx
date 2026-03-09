@@ -14,7 +14,13 @@ export const RoomsTab = ({ rooms, setRooms, reservations, setReservations, maint
     if (!newRoom.number || !newRoom.price) return;
     
     const newId = Date.now().toString();
-    await supabase.from('rooms').insert([{ id: newId, ...newRoom, status: 'Disponible' }]);
+    const newRoomData = { id: newId, ...newRoom, status: 'Disponible' };
+    
+    // 1. UI update optimista (INSTANTÁNEO)
+    setRooms(prev => [...prev, newRoomData]);
+    
+    // 2. Guardar en Supabase
+    await supabase.from('rooms').insert([newRoomData]);
     
     setNewRoom({ number: '', type: 'Habitación Individual', capacity: '1', price: '' });
   };
@@ -26,20 +32,30 @@ export const RoomsTab = ({ rooms, setRooms, reservations, setReservations, maint
   };
 
   const handleSaveEdit = async () => {
+    const updatedRoom = { ...selectedRoom, number: editFormData.number, price: editFormData.price };
+    
+    // UI Update instantáneo
+    setRooms(prev => prev.map(r => r.id === selectedRoom.id ? updatedRoom : r));
+    
     await supabase.from('rooms').update({ number: editFormData.number, price: editFormData.price }).eq('id', selectedRoom.id);
     
-    setSelectedRoom({ ...selectedRoom, number: editFormData.number, price: editFormData.price });
+    setSelectedRoom(updatedRoom);
     setIsEditing(false);
   };
 
   const handleDeleteRoom = async () => {
     if (window.confirm('¿Estás seguro de eliminar esta habitación de forma permanente?')) {
+      setRooms(prev => prev.filter(r => r.id !== selectedRoom.id));
       await supabase.from('rooms').delete().eq('id', selectedRoom.id);
       setSelectedRoom(null);
     }
   };
 
   const handleCheckout = async (reservation) => {
+    // Liberar habitación en UI instantáneamente
+    setRooms(prev => prev.map(r => r.number === reservation.room ? { ...r, status: 'Disponible' } : r));
+    setReservations(prev => prev.map(r => r.id === reservation.id ? { ...r, status: 'Finalizada' } : r));
+    
     await supabase.from('reservations').update({ status: 'Finalizada' }).eq('id', reservation.id);
     
     const roomObj = rooms.find(r => r.number === reservation.room);

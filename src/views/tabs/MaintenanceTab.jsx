@@ -23,16 +23,21 @@ export const MaintenanceTab = ({ rooms, setRooms, maintenanceTasks, setMaintenan
     const todayStr = new Date(todayObj.getTime() - (todayObj.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
 
     const taskId = Math.floor(1000 + Math.random() * 9000).toString();
-    const roomToUpdate = rooms.find(r => r.number === newTask.room);
-
-    await supabase.from('maintenance_tasks').insert([{
+    const newTaskData = {
       id: taskId,
       room: newTask.room,
       reason: newTask.reason,
       startDate: todayStr,
       status: 'En progreso'
-    }]);
+    };
 
+    // Actualización UI Instantánea
+    setMaintenanceTasks(prev => [...prev, newTaskData]);
+    setRooms(prev => prev.map(r => r.number === newTask.room ? { ...r, status: 'En Mantenimiento' } : r));
+
+    await supabase.from('maintenance_tasks').insert([newTaskData]);
+
+    const roomToUpdate = rooms.find(r => r.number === newTask.room);
     if (roomToUpdate) {
        await supabase.from('rooms').update({ status: 'En Mantenimiento' }).eq('id', roomToUpdate.id);
     }
@@ -41,6 +46,10 @@ export const MaintenanceTab = ({ rooms, setRooms, maintenanceTasks, setMaintenan
   };
 
   const handleFinish = async (taskId, roomNumber) => {
+    // Actualización UI instantánea
+    setMaintenanceTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'Completado' } : t));
+    setRooms(prev => prev.map(r => r.number === roomNumber ? { ...r, status: 'Disponible' } : r));
+    
     await supabase.from('maintenance_tasks').update({ status: 'Completado' }).eq('id', taskId);
     
     const roomToUpdate = rooms.find(r => r.number === roomNumber);

@@ -33,13 +33,23 @@ export const UsersTab = ({ users, setUsers }) => {
     if(!userForm.name || !userForm.email) return;
 
     const id = userForm.id || Date.now().toString();
-    await supabase.from('users').upsert([{ ...userForm, id }]);
+    const newUserData = { ...userForm, id };
+    
+    // UI update instantáneo
+    if(isEditing){
+      setUsers(prev => prev.map(u => u.id === id ? newUserData : u));
+    } else {
+      setUsers(prev => [...prev, newUserData]);
+    }
+    
+    await supabase.from('users').upsert([newUserData]);
     
     setShowUserModal(false);
   };
 
   const handleDeleteUser = async (id) => {
     if (window.confirm('¿Estás seguro de que deseas eliminar este usuario de forma permanente?')) {
+      setUsers(prev => prev.filter(u => u.id !== id));
       await supabase.from('users').delete().eq('id', id);
     }
   };

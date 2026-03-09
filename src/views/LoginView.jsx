@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Mail, Lock, Building2, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import loginBg from '../assets/img/login-bg.webp'; // <-- Importando imagen local
 
 export const LoginView = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
@@ -27,7 +28,7 @@ export const LoginView = ({ onLoginSuccess }) => {
       <div className="relative hidden md:flex md:w-1/2 h-full bg-slate-900 items-center justify-center">
         <div className="absolute inset-0 bg-slate-900/40 z-10"></div>
         <img 
-          src="[https://images.pexels.com/photos/258154/pexels-photo-258154.jpeg?auto=compress&cs=tinysrgb&w=1200](https://images.pexels.com/photos/258154/pexels-photo-258154.jpeg?auto=compress&cs=tinysrgb&w=1200)" 
+          src={loginBg} 
           alt="Lobby del Hotel" 
           className="absolute inset-0 w-full h-full object-cover z-0"
           onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}

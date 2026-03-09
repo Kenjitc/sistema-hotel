@@ -45,6 +45,7 @@ export default function App() {
 
     fetchData();
 
+    // Realtime (ahora actuará como soporte, ya que la UI se actualizará optimísticamente)
     const channel = supabase.channel('hotel-db-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms' }, () => supabase.from('rooms').select('*').then(({data}) => setRooms(data || [])))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => supabase.from('reservations').select('*').then(({data}) => setReservations(data || [])))

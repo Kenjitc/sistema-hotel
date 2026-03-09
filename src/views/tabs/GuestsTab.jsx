@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../../config/supabase';
 import { UserPlus, Edit2, X, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
-export const GuestsTab = ({ guests, reservations }) => {
+export const GuestsTab = ({ guests, setGuests, reservations }) => {
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({ dni: '', name: '', email: '', phone: '' });
@@ -30,12 +30,20 @@ export const GuestsTab = ({ guests, reservations }) => {
   const handleSave = async (e) => {
     e.preventDefault();
     if(!form.dni || !form.name) return;
+    
+    if(isEditing){
+      setGuests(prev => prev.map(g => g.dni === form.dni ? form : g));
+    } else {
+      setGuests(prev => [...prev, form]);
+    }
+    
     await supabase.from('guests').upsert([form]);
     setShowModal(false);
   };
 
   const handleDelete = async (dni) => {
     if (window.confirm('¿Estás seguro de que deseas eliminar este huésped?')) {
+      setGuests(prev => prev.filter(g => g.dni !== dni));
       await supabase.from('guests').delete().eq('dni', dni);
     }
   };

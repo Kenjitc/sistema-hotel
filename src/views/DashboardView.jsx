@@ -291,7 +291,7 @@ export const DashboardView = ({ onLogout, reservations, setReservations, rooms, 
           {activeTab === 'maintenance' && <MaintenanceTab rooms={rooms} setRooms={setRooms} maintenanceTasks={maintenanceTasks} setMaintenanceTasks={setMaintenanceTasks} />}
           {activeTab === 'rooms' && <RoomsTab rooms={rooms} setRooms={setRooms} reservations={reservations} setReservations={setReservations} maintenanceTasks={maintenanceTasks} />}
           {activeTab === 'reservations' && <ReservationsTab reservations={reservations} setReservations={setReservations} rooms={rooms} setRooms={setRooms} guests={guests} setGuests={setGuests} users={users} setUsers={setUsers} />}
-          {activeTab === 'guests' && <GuestsTab guests={guests} reservations={reservations} />}
+          {activeTab === 'guests' && <GuestsTab guests={guests} setGuests={setGuests} reservations={reservations} />}
           {activeTab === 'users' && <UsersTab users={users} setUsers={setUsers} />}
           {activeTab === 'reports' && <ReportsTab reservations={reservations} rooms={rooms} />}
           {activeTab === 'settings' && <SettingsTab adminProfile={adminProfile} setAdminProfile={setAdminProfile} rooms={rooms} reservations={reservations} />}

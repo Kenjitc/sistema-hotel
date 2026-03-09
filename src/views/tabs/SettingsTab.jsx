@@ -51,6 +51,10 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
       ...formData,
       roomIcalLinks: roomIcalLinks
     };
+    
+    // UI Update local
+    setAdminProfile(dataToSave);
+    
     await supabase.from('admin_profile').upsert([{ id: 'main', ...dataToSave }]);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
