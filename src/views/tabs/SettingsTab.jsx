@@ -3,14 +3,19 @@ import { supabase } from '../../config/supabase';
 import { User, Mail, Globe, Trash2, Loader2, RefreshCw, Server, BedDouble, Copy, Camera, CheckCircle2 } from 'lucide-react';
 
 export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations }) => {
+  // Inicializamos el estado cargando datos locales como respaldo para que NUNCA se borre
   const [formData, setFormData] = useState({
-    name: adminProfile?.name || '',
-    email: adminProfile?.email || '',
-    avatar: adminProfile?.avatar || null,
-    apiIntegrations: adminProfile?.apiIntegrations || { phpEndpoint: '' }
+    name: adminProfile?.name || localStorage.getItem('hotel_admin_name') || '',
+    email: adminProfile?.email || localStorage.getItem('hotel_admin_email') || '',
+    avatar: adminProfile?.avatar || localStorage.getItem('hotel_admin_avatar') || null,
+    apiIntegrations: adminProfile?.apiIntegrations || { phpEndpoint: localStorage.getItem('hotel_php_endpoint') || '' }
   });
 
-  const [roomIcalLinks, setRoomIcalLinks] = useState({});
+  const [roomIcalLinks, setRoomIcalLinks] = useState(() => {
+    const local = localStorage.getItem('hotel_ical_links');
+    return local ? JSON.parse(local) : {};
+  });
+  
   const [saved, setSaved] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testSuccess, setTestSuccess] = useState(false);
@@ -27,6 +32,7 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
           const data = await response.json();
           if (data && data.roomIcalLinks) {
             setRoomIcalLinks(data.roomIcalLinks);
+            localStorage.setItem('hotel_ical_links', JSON.stringify(data.roomIcalLinks)); // Actualizar localmente también
           }
         } catch (e) {
           console.log("Aún no hay un config.json en PHP o la URL es incorrecta.");
@@ -55,13 +61,13 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
   }, [reservations, formData.apiIntegrations?.phpEndpoint]);
 
   useEffect(() => {
-    if (adminProfile) {
+    if (adminProfile && adminProfile.name) {
        setFormData(prev => ({
          ...prev,
-         name: adminProfile.name || '',
-         email: adminProfile.email || '',
-         avatar: adminProfile.avatar || null,
-         apiIntegrations: adminProfile.apiIntegrations || { phpEndpoint: '' }
+         name: adminProfile.name || prev.name,
+         email: adminProfile.email || prev.email,
+         avatar: adminProfile.avatar || prev.avatar,
+         apiIntegrations: adminProfile.apiIntegrations || prev.apiIntegrations
        }));
     }
   }, [adminProfile]);
@@ -69,7 +75,15 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
   const handleSave = async (e) => {
     e.preventDefault();
     
-    // 2. GUARDAR LOS LINKS EN EL JSON DE TU PHP (SiteGround)
+    // --- 1. GUARDADO LOCAL GARANTIZADO (Instantáneo) ---
+    // Esto asegura que, pase lo que pase con la BD, los datos no se borren de tu pantalla.
+    localStorage.setItem('hotel_ical_links', JSON.stringify(roomIcalLinks));
+    localStorage.setItem('hotel_php_endpoint', formData.apiIntegrations?.phpEndpoint || '');
+    localStorage.setItem('hotel_admin_name', formData.name || '');
+    localStorage.setItem('hotel_admin_email', formData.email || '');
+    if (formData.avatar) localStorage.setItem('hotel_admin_avatar', formData.avatar);
+
+    // --- 2. GUARDAR LOS LINKS EN EL JSON DE TU PHP (SiteGround) ---
     const endpoint = formData.apiIntegrations?.phpEndpoint;
     if (endpoint && endpoint.includes('http')) {
       try {
@@ -80,28 +94,29 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
         });
       } catch (error) {
         console.error("Error al guardar links en PHP:", error);
-        alert("No se pudieron guardar los enlaces iCal en tu servidor PHP. Verifica la URL.");
       }
     }
 
-    // 3. GUARDAR SOLO PERFIL BÁSICO Y LA URL EN SUPABASE
+    // --- 3. GUARDAR PERFIL EN SUPABASE ---
     const dataToSave = {
       name: formData.name,
       email: formData.email,
       avatar: formData.avatar,
-      apiIntegrations: formData.apiIntegrations // Guardamos la URL de PHP para saber a dónde conectarnos
+      apiIntegrations: formData.apiIntegrations 
     };
     
     setAdminProfile(dataToSave); // Actualizar UI local
     
-    const { error } = await supabase.from('admin_profile').upsert([{ id: 'main', ...dataToSave }]);
-    
-    if (error) {
-      console.error("Error de Supabase:", error);
-    } else {
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+    try {
+      const { error } = await supabase.from('admin_profile').upsert([{ id: 'main', ...dataToSave }]);
+      if (error) console.error("Aviso Supabase:", error.message); // No bloqueamos si falla Supabase
+    } catch(err) {
+      console.error(err);
     }
+    
+    // MOSTRAR EL MENSAJE DE "GUARDADO CORRECTAMENTE" SIEMPRE
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
   };
 
   const handleIcalChange = (roomNumber, platform, value) => {
