@@ -4,7 +4,9 @@ import { User, Mail, Globe, Trash2, Loader2, RefreshCw, Server, BedDouble, Copy,
 
 export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations }) => {
   const [formData, setFormData] = useState({
-    ...adminProfile,
+    name: adminProfile?.name || '',
+    email: adminProfile?.email || '',
+    avatar: adminProfile?.avatar || null,
     apiIntegrations: adminProfile?.apiIntegrations || { phpEndpoint: '' }
   });
 
@@ -14,6 +16,25 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
   const [testSuccess, setTestSuccess] = useState(false);
   const [testMessage, setTestMessage] = useState('');
   const fileInputRef = useRef(null);
+
+  // 1. CARGAR LOS LINKS DESDE EL JSON DE TU PHP AL INICIAR
+  useEffect(() => {
+    const fetchConfigFromPHP = async () => {
+      const endpoint = formData.apiIntegrations?.phpEndpoint;
+      if (endpoint && endpoint.includes('http')) {
+        try {
+          const response = await fetch(`${endpoint}?action=getConfig`);
+          const data = await response.json();
+          if (data && data.roomIcalLinks) {
+            setRoomIcalLinks(data.roomIcalLinks);
+          }
+        } catch (e) {
+          console.log("Aún no hay un config.json en PHP o la URL es incorrecta.");
+        }
+      }
+    };
+    fetchConfigFromPHP();
+  }, [formData.apiIntegrations?.phpEndpoint]);
 
   useEffect(() => {
     const updateServerJson = async () => {
@@ -35,40 +56,48 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
 
   useEffect(() => {
     if (adminProfile) {
-       setFormData({
-         ...adminProfile,
+       setFormData(prev => ({
+         ...prev,
+         name: adminProfile.name || '',
+         email: adminProfile.email || '',
+         avatar: adminProfile.avatar || null,
          apiIntegrations: adminProfile.apiIntegrations || { phpEndpoint: '' }
-       });
-       
-       // Soportar ambas formas en las que Supabase pudo haber guardado la columna
-       const linksToLoad = adminProfile.roomIcalLinks || adminProfile.roomicallinks;
-       if (linksToLoad) {
-         // Procesamiento seguro por si Supabase lo guardó como texto en lugar de JSONB
-         let parsedLinks = linksToLoad;
-         if (typeof parsedLinks === 'string') {
-            try { parsedLinks = JSON.parse(parsedLinks); } catch(e) {}
-         }
-         setRoomIcalLinks(parsedLinks || {});
-       }
+       }));
     }
   }, [adminProfile]);
 
   const handleSave = async (e) => {
     e.preventDefault();
+    
+    // 2. GUARDAR LOS LINKS EN EL JSON DE TU PHP (SiteGround)
+    const endpoint = formData.apiIntegrations?.phpEndpoint;
+    if (endpoint && endpoint.includes('http')) {
+      try {
+        await fetch(`${endpoint}?action=saveConfig`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomIcalLinks })
+        });
+      } catch (error) {
+        console.error("Error al guardar links en PHP:", error);
+        alert("No se pudieron guardar los enlaces iCal en tu servidor PHP. Verifica la URL.");
+      }
+    }
+
+    // 3. GUARDAR SOLO PERFIL BÁSICO Y LA URL EN SUPABASE
     const dataToSave = {
-      ...formData,
-      roomIcalLinks: roomIcalLinks
+      name: formData.name,
+      email: formData.email,
+      avatar: formData.avatar,
+      apiIntegrations: formData.apiIntegrations // Guardamos la URL de PHP para saber a dónde conectarnos
     };
     
-    // UI Update local
-    setAdminProfile(dataToSave);
+    setAdminProfile(dataToSave); // Actualizar UI local
     
-    // Intento de guardado con captura de errores
     const { error } = await supabase.from('admin_profile').upsert([{ id: 'main', ...dataToSave }]);
     
     if (error) {
-      console.error("Error crítico de Supabase:", error);
-      alert("❌ Error al guardar en la base de datos:\n" + error.message + "\n\n(Asegúrate de que la columna 'roomIcalLinks' o 'roomicallinks' esté creada como tipo JSONB en la tabla 'admin_profile').");
+      console.error("Error de Supabase:", error);
     } else {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -360,7 +389,6 @@ export const SettingsTab = ({ adminProfile, setAdminProfile, rooms, reservations
                     <p className="font-bold text-slate-800 text-lg flex items-center"><BedDouble size={18} className="mr-2 text-blue-500"/> Hab. {room.number}</p>
                     <p className="text-xs text-slate-500">{room.type}</p>
                     
-                    {/* BOTÓN DE EXPORTACIÓN (Corregido para que SIEMPRE sea visible) */}
                     <div className="mt-3">
                       <p className="text-[10px] font-bold text-emerald-600 uppercase mb-1">Exportar a Booking/Airbnb</p>
                       <button 
