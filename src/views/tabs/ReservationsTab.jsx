@@ -4,26 +4,32 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Trash2 } from 'luc
 import { InteractiveCalendar } from '../../components/InteractiveCalendar';
 import { SourceIcon } from '../../components/LargeCalendar';
 
-export const ReservationsTab = ({ reservations, rooms, guests, users }) => {
+export const ReservationsTab = ({ reservations, setReservations, rooms, setRooms, guests, setGuests, users, setUsers }) => {
   const [newRes, setNewRes] = useState({ dni: '', client: '', email: '', room: '', dateIn: '', dateOut: '', paymentMethod: 'Efectivo', source: 'Directo' });
   const disponibles = rooms.filter(r => r.status === 'Disponible');
 
+  // --- NUEVO: Paginación en Memoria ---
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
-  const sortedReservations = [...reservations].sort((a, b) => new Date(b.dateIn || 0) - new Date(a.dateIn || 0));
+  const sortedReservations = [...reservations].sort((a, b) => new Date(b.dateIn || 0) - new Date(a.dateIn || 0)); // Más recientes primero
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentReservations = sortedReservations.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(sortedReservations.length / itemsPerPage) || 1;
 
-  const handleDateSelect = ({ dateIn, dateOut }) => setNewRes(prev => ({ ...prev, dateIn, dateOut }));
+  const handleDateSelect = ({ dateIn, dateOut }) => {
+    setNewRes(prev => ({ ...prev, dateIn, dateOut }));
+  };
 
   const handleDniChange = (e) => {
     const dniVal = e.target.value;
     setNewRes(prev => ({ ...prev, dni: dniVal }));
+    
     if (dniVal.length >= 8) {
       const existingGuest = guests.find(g => g.dni === dniVal);
-      if (existingGuest) setNewRes(prev => ({ ...prev, client: existingGuest.name, email: existingGuest.email }));
+      if (existingGuest) {
+        setNewRes(prev => ({ ...prev, client: existingGuest.name, email: existingGuest.email }));
+      }
     }
   };
 
@@ -32,8 +38,12 @@ export const ReservationsTab = ({ reservations, rooms, guests, users }) => {
     if (!newRes.client || !newRes.room || !newRes.dateIn || !newRes.dateOut || !newRes.dni) return;
     
     const roomData = rooms.find(r => r.number === newRes.room);
+    
+    // Calculo de total en reserva manual
     const basePrice = roomData ? Number(roomData.price) : 0;
-    const diffTime = Math.abs(new Date(newRes.dateOut) - new Date(newRes.dateIn));
+    const date1 = new Date(newRes.dateIn);
+    const date2 = new Date(newRes.dateOut);
+    const diffTime = Math.abs(date2 - date1);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
     const roomPrice = basePrice * diffDays;
     
@@ -60,28 +70,30 @@ export const ReservationsTab = ({ reservations, rooms, guests, users }) => {
   return (
     <div className="space-y-6 sm:space-y-8">
       <div className="bg-white p-4 sm:p-6 lg:p-8 rounded-2xl shadow-sm border border-slate-100 flex flex-col lg:flex-row gap-6 lg:gap-8">
+        
+        {/* Lado del Formulario de Texto */}
         <div className="flex-1 w-full order-2 lg:order-1">
           <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center"><CalendarIcon className="mr-2 text-yellow-600"/> Registrar Nueva Reserva</h3>
           <form onSubmit={handleAddRes} className="space-y-4 sm:space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">DNI del Huésped</label>
-                <input required type="text" maxLength="8" value={newRes.dni} onChange={handleDniChange} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 bg-slate-50 focus:bg-white placeholder-slate-400 text-base sm:text-sm" placeholder="Ej. 72345678" />
+                <input required type="text" maxLength="8" value={newRes.dni} onChange={handleDniChange} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 transition-shadow bg-slate-50 focus:bg-white placeholder-slate-400 text-base sm:text-sm" placeholder="Ej. 72345678" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Nombre Completo</label>
-                <input required type="text" value={newRes.client} onChange={e=>setNewRes({...newRes, client: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 bg-slate-50 focus:bg-white text-base sm:text-sm" placeholder="Se auto-rellena" />
+                <input required type="text" value={newRes.client} onChange={e=>setNewRes({...newRes, client: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 transition-shadow bg-slate-50 focus:bg-white text-base sm:text-sm" placeholder="Se auto-rellena con el DNI" />
               </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Correo Electrónico</label>
-                <input required type="email" value={newRes.email} onChange={e=>setNewRes({...newRes, email: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 bg-slate-50 focus:bg-white text-base sm:text-sm" placeholder="correo@ejemplo.com" />
+                <input required type="email" value={newRes.email} onChange={e=>setNewRes({...newRes, email: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 transition-shadow bg-slate-50 focus:bg-white text-base sm:text-sm" placeholder="correo@ejemplo.com" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Habitación a Asignar</label>
-                <select required value={newRes.room} onChange={e=>setNewRes({...newRes, room: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 bg-slate-50 focus:bg-white cursor-pointer text-base sm:text-sm">
+                <select required value={newRes.room} onChange={e=>setNewRes({...newRes, room: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 transition-shadow bg-slate-50 focus:bg-white cursor-pointer text-base sm:text-sm">
                   <option value="">Seleccione una disponible...</option>
                   {disponibles.map(r => <option key={r.id} value={r.number}>Hab. {r.number} ({r.type}) - S/ {r.price}</option>)}
                 </select>
@@ -91,7 +103,7 @@ export const ReservationsTab = ({ reservations, rooms, guests, users }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Método de Pago</label>
-                <select required value={newRes.paymentMethod} onChange={e=>setNewRes({...newRes, paymentMethod: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 bg-slate-50 focus:bg-white cursor-pointer text-base sm:text-sm">
+                <select required value={newRes.paymentMethod} onChange={e=>setNewRes({...newRes, paymentMethod: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 transition-shadow bg-slate-50 focus:bg-white cursor-pointer text-base sm:text-sm">
                   <option value="Efectivo">Efectivo / En mostrador</option>
                   <option value="Yape">Yape / Plin</option>
                   <option value="Depósito">Transferencia / Depósito</option>
@@ -99,8 +111,8 @@ export const ReservationsTab = ({ reservations, rooms, guests, users }) => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Origen</label>
-                <select required value={newRes.source} onChange={e=>setNewRes({...newRes, source: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 bg-slate-50 focus:bg-white cursor-pointer text-base sm:text-sm">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Origen / Plataforma</label>
+                <select required value={newRes.source} onChange={e=>setNewRes({...newRes, source: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-yellow-500 transition-shadow bg-slate-50 focus:bg-white cursor-pointer text-base sm:text-sm">
                   <option value="Directo">Teléfono / Counter (Directo)</option>
                   <option value="Booking">Booking.com</option>
                   <option value="Airbnb">Airbnb</option>
@@ -125,12 +137,15 @@ export const ReservationsTab = ({ reservations, rooms, guests, users }) => {
           </form>
         </div>
 
+        {/* Lado del Calendario Interactivo */}
         <div className="w-full lg:w-[450px] flex flex-col items-center order-1 lg:order-2">
            <label className="block text-sm font-medium text-slate-700 w-full mb-3 text-center">Seleccione las fechas en el calendario</label>
            <InteractiveCalendar dateIn={newRes.dateIn} dateOut={newRes.dateOut} onDateSelect={handleDateSelect} />
         </div>
+
       </div>
 
+      {/* Tabla de Reservas */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex justify-between items-center">
           <h3 className="font-bold text-lg">Historial de Reservas</h3>
@@ -141,8 +156,8 @@ export const ReservationsTab = ({ reservations, rooms, guests, users }) => {
             <thead>
               <tr className="bg-slate-50 text-slate-500 text-xs sm:text-sm uppercase tracking-wider">
                 <th className="px-4 sm:px-6 py-3 sm:py-4 font-medium">Origen</th>
-                <th className="px-4 sm:px-6 py-3 sm:py-4 font-medium">ID</th>
-                <th className="px-4 sm:px-6 py-3 sm:py-4 font-medium">Huésped</th>
+                <th className="px-4 sm:px-6 py-3 sm:py-4 font-medium">Reserva ID</th>
+                <th className="px-4 sm:px-6 py-3 sm:py-4 font-medium">Huésped (DNI)</th>
                 <th className="px-4 sm:px-6 py-3 sm:py-4 font-medium">Habitación</th>
                 <th className="px-4 sm:px-6 py-3 sm:py-4 font-medium">Fechas</th>
                 <th className="px-4 sm:px-6 py-3 sm:py-4 font-medium">Status</th>
@@ -158,8 +173,11 @@ export const ReservationsTab = ({ reservations, rooms, guests, users }) => {
                        <span className="text-xs font-medium text-slate-600 hidden sm:inline">{res.source || 'Directo'}</span>
                     </div>
                   </td>
-                  <td className="px-4 sm:px-6 py-4 font-mono text-sm font-bold text-slate-500">#{String(res.id).substring(0, 10)}</td>
-                  <td className="px-4 sm:px-6 py-4 whitespace-nowrap"><p className="font-bold text-slate-900">{res.client}</p><p className="text-xs text-slate-500">DNI: {res.dni}</p></td>
+                  <td className="px-4 sm:px-6 py-4 font-mono text-sm font-bold text-slate-500">#{res.id.toString().substring(0, 10)}</td>
+                  <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                    <p className="font-bold text-slate-900">{res.client}</p>
+                    <p className="text-xs text-slate-500">DNI: {res.dni}</p>
+                  </td>
                   <td className="px-4 sm:px-6 py-4 text-sm text-slate-700 whitespace-nowrap font-bold">Hab. {res.room}</td>
                   <td className="px-4 sm:px-6 py-4 text-xs sm:text-sm text-slate-600 font-medium whitespace-nowrap">
                     <span className="text-emerald-600">IN: {res.dateIn}</span> <br/> <span className="text-rose-600">OUT: {res.dateOut || 'N/A'}</span>
@@ -180,15 +198,33 @@ export const ReservationsTab = ({ reservations, rooms, guests, users }) => {
                   </td>
                 </tr>
               ))}
+              {currentReservations.length === 0 && (
+                 <tr><td colSpan="7" className="px-6 py-8 text-center text-slate-500 text-sm">No hay reservas registradas.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
         
+        {/* NUEVO: Controles de Paginación UI */}
         {totalPages > 1 && (
           <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
-            <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-100"><ChevronLeft size={20} /></button>
-            <span className="text-sm text-slate-600 font-medium">Página {currentPage} de {totalPages}</span>
-            <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-100"><ChevronRight size={20} /></button>
+            <button 
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-40 hover:bg-slate-100 transition shadow-sm"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <span className="text-sm text-slate-600 font-medium">
+              Página {currentPage} de {totalPages}
+            </span>
+            <button 
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-40 hover:bg-slate-100 transition shadow-sm"
+            >
+              <ChevronRight size={20} />
+            </button>
           </div>
         )}
       </div>

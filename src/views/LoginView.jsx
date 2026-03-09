@@ -30,6 +30,7 @@ export const LoginView = ({ onLoginSuccess }) => {
           src="[https://images.pexels.com/photos/258154/pexels-photo-258154.jpeg?auto=compress&cs=tinysrgb&w=1200](https://images.pexels.com/photos/258154/pexels-photo-258154.jpeg?auto=compress&cs=tinysrgb&w=1200)" 
           alt="Lobby del Hotel" 
           className="absolute inset-0 w-full h-full object-cover z-0"
+          onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
         />
         <div className="relative z-20 flex flex-col items-center text-center p-12 text-white">
           <Building2 size={80} className="mb-6 text-yellow-500" />

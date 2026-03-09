@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { supabase } from '../../config/supabase';
 import { Plus, X, Trash2, Edit2, Save, Users, Wallet, Wrench, CheckCircle2, CalendarCheck, BedDouble, Check, ArrowRight } from 'lucide-react';
 
-export const RoomsTab = ({ rooms, reservations, maintenanceTasks }) => {
+export const RoomsTab = ({ rooms, setRooms, reservations, setReservations, maintenanceTasks }) => {
   const [newRoom, setNewRoom] = useState({ number: '', type: 'Habitación Individual', capacity: '1', price: '' });
+  
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editFormData, setEditFormData] = useState({ number: '', price: '' });
@@ -11,9 +12,10 @@ export const RoomsTab = ({ rooms, reservations, maintenanceTasks }) => {
   const handleAddRoom = async (e) => {
     e.preventDefault();
     if (!newRoom.number || !newRoom.price) return;
-    const newId = Date.now().toString();
     
+    const newId = Date.now().toString();
     await supabase.from('rooms').insert([{ id: newId, ...newRoom, status: 'Disponible' }]);
+    
     setNewRoom({ number: '', type: 'Habitación Individual', capacity: '1', price: '' });
   };
 
@@ -25,6 +27,7 @@ export const RoomsTab = ({ rooms, reservations, maintenanceTasks }) => {
 
   const handleSaveEdit = async () => {
     await supabase.from('rooms').update({ number: editFormData.number, price: editFormData.price }).eq('id', selectedRoom.id);
+    
     setSelectedRoom({ ...selectedRoom, number: editFormData.number, price: editFormData.price });
     setIsEditing(false);
   };
@@ -38,10 +41,12 @@ export const RoomsTab = ({ rooms, reservations, maintenanceTasks }) => {
 
   const handleCheckout = async (reservation) => {
     await supabase.from('reservations').update({ status: 'Finalizada' }).eq('id', reservation.id);
+    
     const roomObj = rooms.find(r => r.number === reservation.room);
     if (roomObj) {
        await supabase.from('rooms').update({ status: 'Disponible' }).eq('id', roomObj.id);
     }
+    
     setSelectedRoom({ ...selectedRoom, status: 'Disponible' });
   };
 
@@ -58,9 +63,12 @@ export const RoomsTab = ({ rooms, reservations, maintenanceTasks }) => {
 
   return (
     <div className="space-y-6 sm:space-y-8 relative">
+      
+      {/* MODAL DE DETALLES Y EDICIÓN DE HABITACIÓN */}
       {selectedRoom && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[90vh] animate-in fade-in zoom-in duration-200">
+            {/* Header Modal */}
             <div className={`p-5 sm:p-6 flex-shrink-0 text-white flex justify-between items-start bg-gradient-to-r ${getCardStyle(selectedRoom.status).split(' ')[0]} ${getCardStyle(selectedRoom.status).split(' ')[1]}`}>
               <div>
                 <h2 className="text-2xl sm:text-3xl font-black tracking-tight mb-1">Nro: {isEditing ? editFormData.number : selectedRoom.number}</h2>
@@ -69,7 +77,10 @@ export const RoomsTab = ({ rooms, reservations, maintenanceTasks }) => {
               <button onClick={() => setSelectedRoom(null)} className="p-2 hover:bg-white/20 rounded-full transition"><X size={24} /></button>
             </div>
 
+            {/* Contenido Modal (con scroll) */}
             <div className="p-4 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6">
+              
+              {/* Sección de Edición */}
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
                 <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-4 gap-3">
                   <h4 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Datos de la Habitación</h4>
@@ -108,6 +119,7 @@ export const RoomsTab = ({ rooms, reservations, maintenanceTasks }) => {
                 )}
               </div>
 
+              {/* Información del Huésped o Mantenimiento */}
               {(selectedRoom.status === 'Ocupada' || selectedRoom.status === 'Reservado') && activeReservation ? (
                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
                   <h4 className="font-bold text-blue-900 text-sm uppercase tracking-wider mb-4 flex items-center"><Users size={16} className="mr-2"/> Datos del Huésped</h4>
@@ -165,6 +177,7 @@ export const RoomsTab = ({ rooms, reservations, maintenanceTasks }) => {
         </div>
       )}
 
+      {/* Formulario para agregar */}
       <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-100">
         <h3 className="text-lg font-bold mb-4 sm:mb-5 flex items-center"><Plus className="mr-2 text-yellow-600"/> Agregar Nueva Habitación</h3>
         <form onSubmit={handleAddRoom} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4 items-end">
@@ -193,6 +206,7 @@ export const RoomsTab = ({ rooms, reservations, maintenanceTasks }) => {
         </form>
       </div>
 
+      {/* Cuadrícula de Habitaciones Estilo Visual Moderno */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mt-8 mb-4 gap-4">
         <h3 className="text-xl font-bold">Estado de Habitaciones</h3>
         <div className="flex flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm font-medium bg-white px-3 sm:px-4 py-2.5 rounded-xl shadow-sm border border-slate-100">

@@ -58,6 +58,7 @@ export const LargeCalendar = ({ reservations }) => {
     const daysRes = reservations.filter(r => {
       const isCheckInDay = r.dateIn === formatted;
       const isMiddleDay = r.dateIn < formatted && r.dateOut > formatted;
+      
       return (isCheckInDay || isMiddleDay) && r.status !== 'Finalizada';
     });
 
@@ -76,7 +77,7 @@ export const LargeCalendar = ({ reservations }) => {
               title="Click para ver detalles"
             >
               <SourceIcon source={r.source || 'Directo'} />
-              <span className="truncate font-medium text-slate-700 ml-1">{r.client?.split(' ')[0]} <span className="text-slate-400 font-normal">H{r.room}</span></span>
+              <span className="truncate font-medium text-slate-700 ml-1">{r.client ? r.client.split(' ')[0] : ''} <span className="text-slate-400 font-normal">H{r.room}</span></span>
             </div>
           ))}
         </div>
@@ -86,6 +87,7 @@ export const LargeCalendar = ({ reservations }) => {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mt-6 flex flex-col relative">
+      
       {selectedRes && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={() => setSelectedRes(null)}>
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
